@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # HUNTER - concurrent maze-space traversal language
 # v2007.1123 Chris Pressey, Cat's Eye Technologies
