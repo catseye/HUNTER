@@ -1,43 +1,40 @@
 #!/usr/bin/perl
 
 # HUNTER - concurrent maze-space traversal language
-# v2002.01.26 Chris Pressey, Cat's Eye Technologies
+# v2007.1123 Chris Pressey, Cat's Eye Technologies
 
-# Copyright (c)2002, Cat's Eye Technologies.
+# Copyright (c)2002-2007, Chris Pressey, Cat's Eye Technologies.
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
-# 
-#   Redistributions of source code must retain the above copyright
-#   notice, this list of conditions and the following disclaimer.
-# 
-#   Redistributions in binary form must reproduce the above copyright
-#   notice, this list of conditions and the following disclaimer in
-#   the documentation and/or other materials provided with the
-#   distribution.
-# 
-#   Neither the name of Cat's Eye Technologies nor the names of its
-#   contributors may be used to endorse or promote products derived
-#   from this software without specific prior written permission. 
-# 
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
-# CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
-# INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
-# OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
-# OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-# ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE. 
+#
+#  1. Redistributions of source code must retain the above copyright
+#     notices, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notices, this list of conditions, and the following disclaimer in
+#     the documentation and/or other materials provided with the
+#     distribution.
+#  3. Neither the names of the copyright holders nor the names of their
+#     contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE
+# COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+# ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 
-# usage: [perl] hunter[.pl] [-no-eat] [-delay xxx] hunter-playfield-file
-# requirements: Curses, or ANSI terminal, or Win32 Console.
+# usage: [perl] hunter[.pl] [-no-eat] [-delay ms] hunter-playfield-file
+# requirements: Console::Virtual.
 
 # history: v2000.08.05 - started prototyping (from worb.pl).
 #          v2000.08.07 - added deterministic traversal.
@@ -49,24 +46,52 @@
 #          v2002.01.26 - fixed behaviour of eating of cheese
 #                        added command line options
 #                        does not rely on "\n" in screen driver
+#          v2007.1123  - use latest version of Console::Virtual
+#                        use Time::HiRes if avail, delay in ms
+#                        use strict qw(vars refs subs)
+#                        updated BSD license (no "REGENTS")
 
-# Uncomment this line to use a specific display driver.
-# BEGIN { $_Console::Virtual::setup{display} = 'ANSI'; }
+use strict qw(vars refs subs);
 
-use _Console::Virtual 2001.0123
+# This allows us to keep Console::Virtual in same directory as script
+BEGIN { use File::Basename; push @INC, dirname($0); }
+
+# Uncomment these lines to use specific display/input/color drivers.
+# BEGIN { $Console::Virtual::setup{display} = 'ANSI'; }
+# BEGIN { $Console::Virtual::setup{input} = 'Teletype'; }
+# BEGIN { $Console::Virtual::setup{color} = 'ANSI16'; }
+
+use Console::Virtual 2007.1122
      qw(getkey display gotoxy clrscr clreol
-        normal inverse bold update_display);
+        normal inverse bold update_display color);
+
+# This lets us do sub-second sleeps, if Time::HiRes is available.
+my $sleep = sub($) { sleep(shift); };
+my $found_time_hires = 0;
+foreach my $c (@INC)
+{
+  $found_time_hires = 1 if -r "$c/Time/HiRes.pm";
+}
+if ($found_time_hires) {
+  require Time::HiRes;
+  $sleep = sub($) { Time::HiRes::sleep(shift); };
+}
 
 ### GLOBALS ###
 
-@mouse = ();
-@playfield = ();
-@mouse_at_cache = ();
-@rule = ();
+my @mouse = ();
+my @playfield = ();
+my @mouse_at_cache = ();
+my @rule = ();
 
-$x = 0; $y = 0;
-$no_eat = 0;     # compatibility flag
-$delay = 300;
+my $x = 0;
+my $y = 0;
+
+my $maxx = 1;
+my $maxy = 1;
+
+my $no_eat = 0;     # compatibility flag
+my $delay = 100;
 
 ### SUBS ###
 
@@ -74,9 +99,9 @@ sub draw_playfield
 {
   gotoxy(1,1);
   my $i; my $j; my $p;
-  for($j = 0; $j <= $maxy; $j++)
+  for ($j = 0; $j <= $maxy; $j++)
   {
-    for($i = 0; $i <= $maxx; $i++)
+    for ($i = 0; $i <= $maxx; $i++)
     {
       if (is_mouse_at($i,$j))
       {
@@ -125,7 +150,7 @@ while ($ARGV[0] =~ /^\-\-?(.*?)$/)
 }
 
 open PLAYFIELD, $ARGV[0];
-while(defined($line = <PLAYFIELD>))
+while (defined(my $line = <PLAYFIELD>))
 {
   my $i;
   chomp($line);
@@ -162,12 +187,11 @@ while(defined($line = <PLAYFIELD>))
 close PLAYFIELD;
 
 clrscr();
+color('white', 'black');
 
 draw_playfield();
 
-$start_time = time();
-$tick = 1;
-while(1)
+while (1)
 {
   my $mouse;
   my $pole;
@@ -211,7 +235,7 @@ ResetMouse:
         die "Can't be!";
       }
 
-      if((defined($mouse->{been}[$new_x][$new_y]) and $mouse->{been}[$new_x][$new_y])
+      if ((defined($mouse->{been}[$new_x][$new_y]) and $mouse->{been}[$new_x][$new_y])
         or not vacant($new_x, $new_y))
       {
         $mouse->{stack}[$#{$mouse->{stack}}]++;
@@ -312,10 +336,7 @@ ResetMouse:
     exit(0);
   }
   update_display();
-  for($i = 1; $i < $delay; $i++)
-  {
-    gotoxy(1,20);
-  }
+  &$sleep($delay / 1000);
 }
 
 ### END of hunter.pl ###
