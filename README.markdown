@@ -32,8 +32,8 @@ Mice are particularly special because they have agency. Unlike walls and
 pieces of cheese, they do things. Primarily, they move around. They do
 so at runtime.
 
-The deterministic fashion a mouse moves around - always checking east,
-then north, then west, then south, in each cell - and its memory (each
+The deterministic fashion a mouse moves around — always checking east,
+then north, then west, then south, in each cell — and its memory (each
 mouse keeps a 'map' of where it's been in it's head and tries not to
 backtrack unless there is nowhere else new to go) ensures that, given
 some time, and all other things being equal, a mouse will traverse it's
@@ -42,7 +42,7 @@ repeats, holding the mouse in a state of perpetual live lock.
 
 However, not all other things may be equal. Indeed, the mouse may nibble
 on a bit of strychnine and die. Or, other mice may be concurrently
-tranversing the same maze, and two mice may not share the same space, so
+traversing the same maze, and two mice may not share the same space, so
 they may block each other's progress.
 
 Mice may not move through walls but they may move through empty space
@@ -65,9 +65,9 @@ An example HUNTER program might be:
 
 where
 
--   `# indicates a wall   `
--   `m indicates a mouse   `
--   the digits `0 to 9 represent types of cheese:   `
+-   `#` indicates a wall
+-   `m` indicates a mouse
+-   the digits `0` to `9` represent types of cheese:
     -   `0` = cheddar
     -   `1` = american
     -   `2` = swiss
