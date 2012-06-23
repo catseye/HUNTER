@@ -1,7 +1,5 @@
-Concurrent Maze Space Transformation  
-(with Authentic Interrodent Communication)  
-in the HUNTER Programming Language
-----------------------------------
+Concurrent Maze Space Transformation (with Authentic Interrodent Communication) in the HUNTER Programming Language
+------------------------------------------------------------------------------------------------------------------
 
 It is perceived that one of the biggest problems in maintaining interest
 in programming is the above linear growth of boredom compared to the
@@ -127,8 +125,9 @@ Implementation
 --------------
 
 There is an implementation of HUNTER in Perl 5. It requires the
-[Console::Virtual](/projects/cons_virt/) module to run; however, this
-module is included in the HUNTER distribution.
+[Console::Virtual](http://catseye.tc/projects/console-virtual/) module
+to run; however, this module is included in the HUNTER distribution, so
+you shouldn't have to worry about that.
 
 Chris Pressey  
 Winnipeg, Manitoba, Canada  
