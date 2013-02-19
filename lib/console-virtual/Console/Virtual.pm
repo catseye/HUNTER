@@ -1,7 +1,7 @@
 # Console::Virtual.pm - unbuffered-input/addressed-display layer
-# v2007.1122 Chris Pressey, Cat's Eye Technologies
+# version 2.0 (February 2013)
 
-# Copyright (c)2003-2007, Chris Pressey, Cat's Eye Technologies.
+# Copyright (c)2003-2013, Chris Pressey, Cat's Eye Technologies.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,129 +37,130 @@ BEGIN
   use 5;
   use strict qw(subs);
   use Exporter;
-  $VERSION = 2007.1122;
+  $VERSION = 2.0;
   @ISA = qw(Exporter);
   @EXPORT_OK = qw(&display &clrscr &clreol &gotoxy
                   &bold &inverse &normal
-                  &update_display &getkey &color);
+                  &update_display &getkey &color
+                  &vsleep);
 }
 
 %setup = ();
 
 BEGIN
 {
-  my $c;
-  my $fc = 0;  # found Curses.pm?
-  my $fs = 0;  # found Term::Screen?
-  my $fp = 0;  # found POSIX.pm?
-  my $ft = 0;  # found $TERM and /etc/termcap?
-  foreach $c (@INC)
+  my $found_curses = 0;      # found Curses.pm?
+  my $found_term_screen = 0; # found Term::Screen?
+  my $found_posix = 0;       # found POSIX.pm?
+  my $found_termcap = 0;     # found $TERM and /etc/termcap?
+  foreach my $path (@INC)
   {
-    $fc = 1 if -r "$c/Curses.pm";
-    $fs = 1 if -r "$c/Term/Screen.pm";
-    $fp = 1 if -r "$c/POSIX.pm";
+    $found_curses = 1 if -r "$path/Curses.pm";
+    $found_term_screen = 1 if -r "$path/Term/Screen.pm";
+    $found_posix = 1 if -r "$path/POSIX.pm";
   }
-  $ft = $ENV{TERM} && -r "/etc/termcap";
+  $found_termcap = $ENV{TERM} && -r "/etc/termcap";
   $| = 1;
 
   # Determine raw input module to use.
   # This can be pre-set by the calling code
   # by modifying %Console::Virtual::setup.
 
-  if (defined $setup{input})
+  if (not defined $setup{input})
   {
-    require "Console/Input/$setup{input}.pm";
+    if ($found_curses)
+    {
+      $setup{input} = 'Curses';
+    }
+    elsif ($^O eq 'MSWin32')
+    {
+      $setup{input} = 'Win32';
+    }
+    elsif ($found_term_screen)
+    {
+      $setup{input} = 'Screen';
+    }
+    elsif ($found_posix)
+    {
+      $setup{input} = 'POSIX';
+    } else
+    {
+      warn "Warning! Raw input probably not available on this '$^O' system.\n";
+      $setup{input} = 'Teletype';
+    }
   }
-  elsif ($fc)
-  {
-    require Console::Input::Curses;
-    $setup{input} = 'Curses';
-  }
-  elsif ($^O eq 'MSWin32')
-  {
-    require Console::Input::Win32;
-    $setup{input} = 'Win32';
-  }
-  elsif ($fs)
-  {
-    require Console::Input::Screen;
-    $setup{input} = 'Screen';
-  }
-  elsif ($fp)
-  {
-    require Console::Input::POSIX;
-    $setup{input} = 'POSIX';
-  } else
-  {
-    warn "Warning! Raw input probably not available on this '$^O' system.\n";
-    require Console::Input::Teletype;
-    $setup{input} = 'Teletype';
-  }
+  require "Console/Input/$setup{input}.pm";
 
   # Determine screen-addressed output method to use.
   # This can be pre-set by the calling code
   # by modifying %Console::Virtual::setup.
 
-  if (defined $setup{display})
+  if (not defined $setup{display})
   {
-    require "Console/Display/$setup{display}.pm";
+    if ($found_curses)
+    {
+      $setup{display} = 'Curses';
+    }
+    elsif ($^O eq 'MSWin32')
+    {
+      $setup{display} = 'Win32';
+    }
+    elsif ($found_term_screen)
+    {
+      $setup{display} = 'Screen';
+    }
+    elsif ($found_termcap)
+    {
+      $setup{display} = 'Tput';
+    } else
+    {
+      warn "Addressable screen must be emulated on this '$^O' system";
+      $setup{display} = 'Teletype';
+    }
   }
-  elsif ($fc)
-  {
-    require Console::Display::Curses;
-    $setup{display} = 'Curses';
-  }
-  elsif ($^O eq 'MSWin32')
-  {
-    require Console::Display::Win32;
-    $setup{display} = 'Win32';
-  }
-  elsif ($fs)
-  {
-    require Console::Display::Screen;
-    $setup{display} = 'Screen';
-  }
-  elsif ($ft)
-  {
-    require Console::Display::Tput;
-    $setup{display} = 'Tput';
-  } else
-  {
-    warn "Addressable screen must be emulated on this '$^O' system";
-    require Console::Display::Teletype;
-    $setup{display} = 'Teletype';
-  }
+  require "Console/Display/$setup{display}.pm";
 
   # 2001.01.27 CAP
   # Determine color module to use.
   # This can be pre-set by the calling code
   # by modifying %Console::Virtual::setup.
 
-  if (defined $setup{color})
+  if (not defined $setup{color})
   {
-    require "Console/Color/$setup{color}.pm";
+    if ($found_curses)
+    {
+      $setup{color} = 'Curses';
+    }
+    elsif ($^O eq 'MSWin32')
+    {
+      $setup{color} = 'Win32';
+    }
+    elsif ($found_term_screen)
+    {
+      # $setup{color} = 'Screen';    # TODO! needs to be written
+      $setup{color} = 'ANSI16';      # not a very general solution
+    }
+    else
+    {
+      $setup{color} = 'Mono';
+    }
   }
-  elsif ($fc)
-  {
-    require Console::Color::Curses;
-    $setup{color} = 'Curses';
-  }
-  elsif ($^O eq 'MSWin32')
-  {
-    require Console::Color::Win32;
-    $setup{color} = 'Win32';
-  }
-  elsif ($fs)
-  {
-    # require Console::Color::Screen;  # TODO! needs to be written
-    require Console::Color::ANSI16;    # not a very general solution
-    $setup{color} = 'ANSI16';
-  }
-  else
-  {
-    require Console::Color::Mono;
-    $setup{color} = 'Mono';
-  }
+  require "Console/Color/$setup{color}.pm";
+}
+
+# This lets us do sub-second sleeps, if Time::HiRes is available.
+my $sleep = sub($) { sleep(shift); };
+my $found_time_hires = 0;
+foreach my $c (@INC)
+{
+  $found_time_hires = 1 if -r "$c/Time/HiRes.pm";
+}
+if ($found_time_hires) {
+  require Time::HiRes;
+  $sleep = sub($) { Time::HiRes::sleep(shift); };
+}
+sub vsleep($) {
+  &$sleep($_[0]);
 }
 
 1;

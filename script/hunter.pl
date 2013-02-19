@@ -67,21 +67,10 @@ BEGIN
 # BEGIN { $Console::Virtual::setup{input} = 'Teletype'; }
 # BEGIN { $Console::Virtual::setup{color} = 'ANSI16'; }
 
-use Console::Virtual 2007.1122
+use Console::Virtual 2.0
      qw(getkey display gotoxy clrscr clreol
-        normal inverse bold update_display color);
-
-# This lets us do sub-second sleeps, if Time::HiRes is available.
-my $sleep = sub($) { sleep(shift); };
-my $found_time_hires = 0;
-foreach my $c (@INC)
-{
-  $found_time_hires = 1 if -r "$c/Time/HiRes.pm";
-}
-if ($found_time_hires) {
-  require Time::HiRes;
-  $sleep = sub($) { Time::HiRes::sleep(shift); };
-}
+        normal inverse bold update_display color
+        vsleep);
 
 ### GLOBALS ###
 
@@ -342,7 +331,7 @@ ResetMouse:
     exit(0);
   }
   update_display();
-  &$sleep($delay / 1000);
+  vsleep($delay / 1000);
 }
 
 ### END of hunter.pl ###
